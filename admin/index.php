@@ -115,6 +115,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         redirect_self();
     }
 
+    if ($do === 'reset') {
+        $token = (string) ($_POST['token'] ?? '');
+        store_tx(function (array &$d) use ($token) {
+            if (isset($d['invites'][$token])) {
+                $old = $d['invites'][$token];
+                $d['invites'][$token] = ['name' => $old['name'], 'created_at' => $old['created_at'] ?? time(), 'opens' => 0];
+            }
+            return null;
+        });
+        flash('Հրավերը զրոյացված է. կարելի է նորից բացել և պատասխանել։');
+        redirect_self();
+    }
+
     if ($do === 'delete') {
         $token = (string) ($_POST['token'] ?? '');
         store_tx(function (array &$d) use ($token) {
@@ -193,8 +206,8 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/style.css?v=2">
-<link rel="stylesheet" href="../assets/admin.css?v=2">
+<link rel="stylesheet" href="../assets/style.css?v=3">
+<link rel="stylesheet" href="../assets/admin.css?v=3">
 </head>
 <body class="admin">
 <main class="wrap">
@@ -298,7 +311,15 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
     <div class="link-row">
       <input class="link" type="text" readonly value="<?= h($link) ?>" aria-label="Հրավերի հղումը" onfocus="this.select()">
       <button type="button" class="btn-sm" data-copy="<?= h($link) ?>">Պատճենել հղումը</button>
-      <a class="btn-sm" href="<?= h($link) ?>" target="_blank" rel="noopener">Դիտել</a>
+      <a class="btn-sm" href="<?= h($link) ?>&amp;preview=1" target="_blank" rel="noopener">Նախադիտել</a>
+      <?php if ($opens > 0 || $answer): ?>
+      <form method="post" onsubmit="return confirm('Զրոյացնե՞լ բացումներն ու պատասխանը։');">
+        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+        <input type="hidden" name="do" value="reset">
+        <input type="hidden" name="token" value="<?= h((string) $token) ?>">
+        <button type="submit" class="btn-sm">Զրոյացնել</button>
+      </form>
+      <?php endif; ?>
     </div>
 
     <dl class="facts">

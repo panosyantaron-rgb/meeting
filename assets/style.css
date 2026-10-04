@@ -225,3 +225,5 @@ body.is-done .deco { fill: #D94673; opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
 }
+
+.preview-note { position: sticky; top: 0; z-index: 20; margin: 0; padding: 10px 16px; background: var(--ink); color: #FFFFFF; font-size: 14px; font-weight: 700; text-align: center; }

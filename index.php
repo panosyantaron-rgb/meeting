@@ -28,7 +28,7 @@ if (!$inv) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="<?= h($fonts) ?>" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=2">
+<link rel="stylesheet" href="assets/style.css?v=3">
 </head>
 <body>
 <main class="app">
@@ -51,6 +51,7 @@ $cfg = [
     'answer' => $inv['answer'] ?? null,
     'today' => date('Y-m-d'),
     'blocked' => blocked_dates($data),
+    'preview' => isset($_GET['preview']) && is_admin(),
 ];
 $json = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 ?>
@@ -67,7 +68,7 @@ $json = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP |
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="<?= h($fonts) ?>" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=2">
+<link rel="stylesheet" href="assets/style.css?v=3">
 </head>
 <body>
 <script type="application/json" id="cfg"><?= $json ?></script>
@@ -76,6 +77,9 @@ $json = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP |
 <svg class="deco deco-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>
 <svg class="deco deco-3" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>
 
+<?php if ($cfg['preview']): ?>
+<p class="preview-note" role="status">Նախադիտում է. ոչինչ չի պահպանվում և նամակ չի ուղարկվում</p>
+<?php endif; ?>
 <main class="app" id="app">
 
   <!-- 1. Language -->
@@ -166,6 +170,6 @@ $json = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP |
   </section>
 
 </main>
-<script src="assets/app.js?v=2"></script>
+<script src="assets/app.js?v=3"></script>
 </body>
 </html>

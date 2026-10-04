@@ -79,6 +79,7 @@
 
   function api(payload) {
     payload.token = cfg.token;
+    if (cfg.preview) { payload.preview = 1; }
     return fetch('api.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

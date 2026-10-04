@@ -28,8 +28,9 @@ if (!valid_token($token)) {
     out(['ok' => false, 'error' => 'token'], 404);
 }
 
-// When you preview an invitation while logged in to the admin panel, nothing is recorded.
-$preview = is_admin();
+// The admin panel's "preview" link (?preview=1) records nothing. A normal link always records,
+// even in a browser that is logged in to the admin panel.
+$preview = !empty($in['preview']) && is_admin();
 $now = time();
 $mail = null;
 
