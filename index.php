@@ -7,8 +7,10 @@ header('Cache-Control: no-store');
 
 $token = is_string($_GET['i'] ?? null) ? $_GET['i'] : '';
 $inv = null;
+$data = [];
 if (valid_token($token)) {
-    $inv = store_read()['invites'][$token] ?? null;
+    $data = store_read();
+    $inv = $data['invites'][$token] ?? null;
 }
 
 $fonts = 'https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian:wght@400;500;700;800&family=Noto+Sans:wght@400;500;700;800&display=swap';
@@ -26,7 +28,7 @@ if (!$inv) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="<?= h($fonts) ?>" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=1">
+<link rel="stylesheet" href="assets/style.css?v=2">
 </head>
 <body>
 <main class="app">
@@ -48,6 +50,7 @@ $cfg = [
     'lang' => $inv['lang'] ?? null,
     'answer' => $inv['answer'] ?? null,
     'today' => date('Y-m-d'),
+    'blocked' => blocked_dates($data),
 ];
 $json = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 ?>
@@ -64,7 +67,7 @@ $json = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP |
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="<?= h($fonts) ?>" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=1">
+<link rel="stylesheet" href="assets/style.css?v=2">
 </head>
 <body>
 <script type="application/json" id="cfg"><?= $json ?></script>
@@ -163,6 +166,6 @@ $json = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP |
   </section>
 
 </main>
-<script src="assets/app.js?v=1"></script>
+<script src="assets/app.js?v=2"></script>
 </body>
 </html>

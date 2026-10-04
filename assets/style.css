@@ -178,6 +178,7 @@ body.is-done .deco { fill: #D94673; opacity: 1; }
 .day.today { box-shadow: inset 0 0 0 1.5px var(--line); }
 .day.on { background: var(--accent); color: #FFFFFF; font-weight: 800; box-shadow: none; }
 .day:disabled { color: #D9B3BF; }
+.day.blocked { text-decoration: line-through; }
 
 .times { margin: 10px 0 24px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .time {
@@ -210,6 +211,7 @@ body.is-done .deco { fill: #D94673; opacity: 1; }
 .field-v { font-size: 20px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
 .field-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
 .sent { margin-top: 28px; display: flex; align-items: center; gap: 10px; font-size: 15px; line-height: 1.4; color: #FFE3EA; }
+.sent.pending svg { display: none; }
 .sent svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
 .badge-lg { margin-bottom: 24px; }

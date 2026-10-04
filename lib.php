@@ -72,6 +72,20 @@ function store_tx(callable $fn)
     return $result;
 }
 
+/** Days the owner marked as not available, today and later, as "Y-m-d" strings. */
+function blocked_dates(array $data): array
+{
+    $today = date('Y-m-d');
+    $out = [];
+    foreach ((array) ($data['settings']['blocked_dates'] ?? []) as $d) {
+        if (is_string($d) && $d >= $today) {
+            $out[] = $d;
+        }
+    }
+    sort($out);
+    return $out;
+}
+
 function valid_token(string $t): bool
 {
     return (bool) preg_match('/^[a-f0-9]{10,32}$/', $t);

@@ -4,6 +4,7 @@ require __DIR__ . '/lib.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
+@ini_set('zlib.output_compression', '0');
 
 function out(array $data, int $code = 200): void
 {
@@ -79,6 +80,9 @@ $result = store_tx(function (array &$data) use ($action, $token, $in, $now, $pre
             if (!$acts || !$dateOk || !$timeOk) {
                 return ['ok' => false, 'error' => 'fields', 'code' => 400];
             }
+            if (in_array($date, blocked_dates($data), true)) {
+                return ['ok' => false, 'error' => 'blocked', 'blocked' => blocked_dates($data), 'code' => 409];
+            }
             $inv['said_yes_at'] = $inv['said_yes_at'] ?? $now;
             $inv['answer'] = ['activities' => $acts, 'date' => $date, 'time' => $time];
             $inv['answered_at'] = $now;
@@ -88,7 +92,31 @@ $result = store_tx(function (array &$data) use ($action, $token, $in, $now, $pre
     return ['ok' => false, 'error' => 'action', 'code' => 400];
 });
 
+$code = (int) ($result['code'] ?? 200);
+unset($result['code']);
+
 if ($mail && $mail['to'] !== '') {
+    // Answer the browser first, then send the email: mail() can take several seconds.
+    ignore_user_abort(true);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+    $json = json_encode($result, JSON_UNESCAPED_UNICODE);
+    http_response_code($code);
+    header('Content-Length: ' . strlen($json));
+    header('Connection: close');
+    echo $json;
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    } elseif (function_exists('litespeed_finish_request')) {
+        litespeed_finish_request();
+    } else {
+        while (ob_get_level() > 0) {
+            ob_end_flush();
+        }
+        flush();
+    }
+
     $inv = $mail['inv'];
     $body = "Հրավերին պատասխանել են։\n\n"
         . 'Անուն՝ ' . $inv['name'] . "\n"
@@ -105,8 +133,7 @@ if ($mail && $mail['to'] !== '') {
         }
         return null;
     });
+    exit;
 }
 
-$code = (int) ($result['code'] ?? 200);
-unset($result['code']);
 out($result, $code);

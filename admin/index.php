@@ -125,6 +125,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         redirect_self();
     }
 
+    if ($do === 'blocked') {
+        $today = date('Y-m-d');
+        $dates = [];
+        foreach (explode(',', (string) ($_POST['dates'] ?? '')) as $d) {
+            $d = trim($d);
+            $dt = DateTime::createFromFormat('!Y-m-d', $d);
+            if ($dt && $dt->format('Y-m-d') === $d && $d >= $today) {
+                $dates[$d] = true;
+            }
+        }
+        $dates = array_slice(array_keys($dates), 0, 400);
+        sort($dates);
+        store_tx(function (array &$d) use ($dates) {
+            $d['settings']['blocked_dates'] = $dates;
+            return null;
+        });
+        flash($dates ? 'Պահպանված է. ոչ հարմար օրեր՝ ' . count($dates) . '։' : 'Պահպանված է. ոչ հարմար օրեր չկան։');
+        redirect_self();
+    }
+
     if ($do === 'settings') {
         $email = trim((string) ($_POST['email'] ?? ''));
         $pass = (string) ($_POST['password'] ?? '');
@@ -173,8 +193,8 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/style.css?v=1">
-<link rel="stylesheet" href="../assets/admin.css?v=1">
+<link rel="stylesheet" href="../assets/style.css?v=2">
+<link rel="stylesheet" href="../assets/admin.css?v=2">
 </head>
 <body class="admin">
 <main class="wrap">
@@ -310,6 +330,29 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
   </article>
   <?php endforeach; ?>
 
+  <section class="panel busy">
+    <h2>Ինձ ոչ հարմար օրեր</h2>
+    <p class="hint">Սեղմիր այն օրերի վրա, որոնք քեզ հարմար չեն, և պահպանիր։ Հրավերում այդ օրերը հնարավոր չի լինի ընտրել։</p>
+    <form method="post">
+      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+      <input type="hidden" name="do" value="blocked">
+      <input type="hidden" name="dates" id="busy-dates" value="<?= h(implode(',', blocked_dates($data))) ?>">
+      <div class="cal busy-cal">
+        <div class="cal-head">
+          <span class="cal-month" id="busy-month" aria-live="polite"></span>
+          <div class="cal-nav">
+            <button type="button" class="icon-btn" id="busy-prev" aria-label="Նախորդ ամիս"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+            <button type="button" class="icon-btn" id="busy-next" aria-label="Հաջորդ ամիս"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          </div>
+        </div>
+        <div class="cal-wd" aria-hidden="true"><div>Երկ</div><div>Երք</div><div>Չրք</div><div>Հնգ</div><div>Ուրբ</div><div>Շբթ</div><div>Կիր</div></div>
+        <div class="cal-grid" id="busy-grid" data-today="<?= h(date('Y-m-d')) ?>"></div>
+      </div>
+      <p class="busy-count" id="busy-count"></p>
+      <button type="submit" class="btn btn-primary">Պահպանել օրերը</button>
+    </form>
+  </section>
+
   <details class="panel settings">
     <summary>Կարգավորումներ</summary>
     <form method="post" class="form">
@@ -343,6 +386,62 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
       try { document.execCommand('copy'); done(); } catch (err) {}
     }
   });
+  (function () {
+    var grid = document.getElementById('busy-grid');
+    var input = document.getElementById('busy-dates');
+    var months = ['Հունվար', 'Փետրվար', 'Մարտ', 'Ապրիլ', 'Մայիս', 'Հունիս', 'Հուլիս', 'Օգոստոս', 'Սեպտեմբեր', 'Հոկտեմբեր', 'Նոյեմբեր', 'Դեկտեմբեր'];
+    var todayStr = grid.getAttribute('data-today');
+    var tp = todayStr.split('-');
+    var today = { y: +tp[0], m: +tp[1] - 1 };
+    var view = { y: today.y, m: today.m };
+    var MAX_AHEAD = 6;
+    var set = {};
+    input.value.split(',').forEach(function (d) { if (d) { set[d] = true; } });
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function offset() { return (view.y - today.y) * 12 + (view.m - today.m); }
+    function sync() {
+      var list = Object.keys(set).sort();
+      input.value = list.join(',');
+      document.getElementById('busy-count').textContent = list.length ? 'Նշված է ' + list.length + ' օր' : 'Դեռ օր չի նշված';
+    }
+    function render() {
+      document.getElementById('busy-month').textContent = months[view.m] + ' ' + view.y;
+      grid.innerHTML = '';
+      var first = (new Date(view.y, view.m, 1).getDay() + 6) % 7;
+      var count = new Date(view.y, view.m + 1, 0).getDate();
+      for (var d = 1; d <= count; d++) {
+        (function (d) {
+          var s = view.y + '-' + pad(view.m + 1) + '-' + pad(d);
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'day' + (set[s] ? ' blocked' : '') + (s === todayStr ? ' today' : '');
+          b.textContent = d;
+          if (d === 1) { b.style.gridColumnStart = first + 1; }
+          if (s < todayStr) { b.disabled = true; }
+          b.setAttribute('aria-pressed', set[s] ? 'true' : 'false');
+          b.addEventListener('click', function () {
+            if (set[s]) { delete set[s]; } else { set[s] = true; }
+            sync(); render();
+          });
+          grid.appendChild(b);
+        })(d);
+      }
+      document.getElementById('busy-prev').disabled = offset() <= 0;
+      document.getElementById('busy-next').disabled = offset() >= MAX_AHEAD;
+    }
+    document.getElementById('busy-prev').addEventListener('click', function () {
+      if (offset() <= 0) { return; }
+      view.m--; if (view.m < 0) { view.m = 11; view.y--; }
+      render();
+    });
+    document.getElementById('busy-next').addEventListener('click', function () {
+      if (offset() >= MAX_AHEAD) { return; }
+      view.m++; if (view.m > 11) { view.m = 0; view.y++; }
+      render();
+    });
+    sync(); render();
+  })();
   </script>
 <?php endif; ?>
 

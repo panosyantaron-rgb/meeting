@@ -21,6 +21,7 @@
       prev: 'Նախորդ ամիս', nextMonth: 'Հաջորդ ամիս',
       doneTitle: 'Պայմանավորվեցինք', doneSub: 'Սպասում եմ անհամբեր',
       kicker: 'ՏՈՄՍ ԵՐԿՈՒՍԻ ՀԱՄԱՐ', ticket: 'Մեր ժամադրությունը', what: 'Ի՞նչ', when: 'Ե՞րբ',
+      blockedErr: 'Այդ օրն այլևս ազատ չէ։ Ընտրիր ուրիշ օր։',
       sent: 'Պատասխանդ արդեն ուղարկված է', error: 'Չստացվեց ուղարկել։ Փորձիր նորից։'
     },
     ru: {
@@ -39,6 +40,7 @@
       prev: 'Предыдущий месяц', nextMonth: 'Следующий месяц',
       doneTitle: 'Договорились', doneSub: 'Жду с нетерпением',
       kicker: 'БИЛЕТ НА ДВОИХ', ticket: 'Наше свидание', what: 'Что', when: 'Когда',
+      blockedErr: 'Этот день уже занят. Выбери другой.',
       sent: 'Твой ответ уже отправлен', error: 'Не получилось отправить. Попробуй ещё раз.'
     },
     en: {
@@ -56,6 +58,7 @@
       prev: 'Previous month', nextMonth: 'Next month',
       doneTitle: 'It’s a date', doneSub: 'I can’t wait',
       kicker: 'TICKET FOR TWO', ticket: 'Our date', what: 'What', when: 'When',
+      blockedErr: 'That day is no longer free. Please pick another.',
       sent: 'Your answer has been sent', error: 'Couldn’t send. Please try again.'
     }
   };
@@ -80,6 +83,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
+      keepalive: true,
       body: JSON.stringify(payload)
     }).then(function (r) { return r.json(); });
   }
@@ -236,6 +240,7 @@
   var today = { y: +tp[0], m: +tp[1] - 1, d: +tp[2] };
   var view = { y: today.y, m: today.m };
   var MAX_AHEAD = 6;
+  var blocked = cfg.blocked || [];
 
   function monthsFromToday() { return (view.y - today.y) * 12 + (view.m - today.m); }
 
@@ -259,6 +264,7 @@
         b.textContent = d;
         if (d === 1) { b.style.gridColumnStart = first + 1; }
         if (s < todayStr) { b.disabled = true; }
+        if (blocked.indexOf(s) !== -1) { b.disabled = true; b.classList.add('blocked'); }
         b.setAttribute('aria-pressed', s === state.date ? 'true' : 'false');
         b.addEventListener('click', function () { state.date = s; renderCal(); syncSend(); });
         grid.appendChild(b);
@@ -298,21 +304,36 @@
 
   $('btn-send').addEventListener('click', function () {
     var btn = this, err = $('send-error');
+    var answer = { activities: state.acts.slice(), date: state.date, time: state.time };
     btn.disabled = true;
-    btn.textContent = L.sending;
     err.hidden = true;
-    api({ action: 'answer', activities: state.acts, date: state.date, time: state.time })
+    // Show the ticket straight away; the answer is saved in the background.
+    setSent(false);
+    showTicket(answer);
+    api({ action: 'answer', activities: answer.activities, date: answer.date, time: answer.time })
       .then(function (res) {
-        if (!res || !res.ok) { throw new Error('failed'); }
-        showTicket(res.answer || { activities: state.acts, date: state.date, time: state.time });
+        if (!res || !res.ok) { var e = new Error('failed'); e.res = res; throw e; }
+        if (res.answer) { showTicket(res.answer); }
+        setSent(true);
       })
-      .catch(function () {
-        err.textContent = L.error;
+      .catch(function (e) {
+        var isBlocked = e.res && e.res.error === 'blocked';
+        if (isBlocked) {
+          blocked = e.res.blocked || blocked.concat([answer.date]);
+          state.date = null;
+          renderCal();
+        }
+        err.textContent = isBlocked ? L.blockedErr : L.error;
         err.hidden = false;
-        btn.textContent = L.send;
-        btn.disabled = false;
+        show('s-when');
+        syncSend();
       });
   });
+
+  function setSent(done) {
+    $('sent-label').textContent = done ? L.sent : L.sending;
+    document.querySelector('.sent').classList.toggle('pending', !done);
+  }
 
   /* ---------- 5. ticket ---------- */
   function showTicket(a) {

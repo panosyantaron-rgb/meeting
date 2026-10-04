@@ -66,3 +66,11 @@ input::placeholder { color: #A9778A; }
 .facts dd.small { font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 2px; }
 
 .settings summary { font-size: 18px; font-weight: 800; cursor: pointer; }
+
+.hint { font-size: 15px; line-height: 1.5; color: var(--muted); margin: -6px 0 4px; }
+.busy-cal { max-width: 420px; margin: 16px 0; background: var(--ground); border: 0; }
+.busy-cal .icon-btn { background: var(--card); }
+.busy-cal .day:hover:not(:disabled):not(.blocked) { background: var(--card); }
+.busy-cal .day.blocked { background: var(--ink); color: #FFFFFF; font-weight: 800; text-decoration: none; box-shadow: none; }
+.busy-count { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+.busy .btn { min-height: 52px; font-size: 17px; border-radius: 16px; padding: 0 24px; }
