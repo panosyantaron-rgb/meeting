@@ -43,19 +43,36 @@ if (!hash_equals($_SESSION['_csrf'] ?? '', $csrf)) {
 // Rate limiting: max 60 requests per minute per IP
 $client_ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 $rate_limit_key = 'api_' . sha1($client_ip);
-$rate_data = apcu_fetch($rate_limit_key);
-if ($rate_data === false) {
-    $rate_data = ['count' => 0, 'time' => time()];
+
+// Try APCu if available, fall back to session-based rate limiting
+if (function_exists('apcu_fetch')) {
+    $rate_data = apcu_fetch($rate_limit_key);
+    if ($rate_data === false) {
+        $rate_data = ['count' => 0, 'time' => time()];
+    }
+    $now_rl = time();
+    if ($now_rl - $rate_data['time'] > 60) {
+        $rate_data = ['count' => 0, 'time' => $now_rl];
+    }
+    $rate_data['count']++;
+    if ($rate_data['count'] > 60) {
+        out(['ok' => false, 'error' => 'rate_limit'], 429);
+    }
+    apcu_store($rate_limit_key, $rate_data, 61);
+} else {
+    // Fallback: use session-based rate limiting
+    $_SESSION['_rate_limits'] ??= [];
+    $rate_data = $_SESSION['_rate_limits'][$rate_limit_key] ?? ['count' => 0, 'time' => time()];
+    $now_rl = time();
+    if ($now_rl - $rate_data['time'] > 60) {
+        $rate_data = ['count' => 0, 'time' => $now_rl];
+    }
+    $rate_data['count']++;
+    if ($rate_data['count'] > 60) {
+        out(['ok' => false, 'error' => 'rate_limit'], 429);
+    }
+    $_SESSION['_rate_limits'][$rate_limit_key] = $rate_data;
 }
-$now_rl = time();
-if ($now_rl - $rate_data['time'] > 60) {
-    $rate_data = ['count' => 0, 'time' => $now_rl];
-}
-$rate_data['count']++;
-if ($rate_data['count'] > 60) {
-    out(['ok' => false, 'error' => 'rate_limit'], 429);
-}
-apcu_store($rate_limit_key, $rate_data, 61);
 
 // The admin panel's "preview" link (?preview=1) records nothing. A normal link always records,
 // even in a browser that is logged in to the admin panel.

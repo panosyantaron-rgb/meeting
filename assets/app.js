@@ -393,12 +393,20 @@
     var wd = $('cal-wd');
     wd.innerHTML = '';
     L.wd.forEach(function (s) { var e = document.createElement('div'); e.textContent = s; wd.appendChild(e); });
+    console.log('[renderCal] weekday headers created, wd.children.length:', wd.children.length);
 
     var grid = $('cal-grid');
+    console.log('[renderCal] grid element:', grid, 'is null?', grid === null, 'is undefined?', grid === undefined);
+    if (!grid) { console.error('[renderCal] FATAL: grid element not found!'); return; }
     grid.innerHTML = '';
+    console.log('[renderCal] grid.innerHTML cleared, grid.children.length:', grid.children.length);
+
     var first = (new Date(view.y, view.m, 1).getDay() + 6) % 7; // Monday first
     var count = new Date(view.y, view.m + 1, 0).getDate();
     var todayStr = ymd(today.y, today.m, today.d);
+    console.log('[renderCal] calculations: view=', view, 'first=', first, 'count=', count, 'todayStr=', todayStr);
+
+    var created = 0;
     for (var d = 1; d <= count; d++) {
       (function (d) {
         var s = ymd(view.y, view.m, d);
@@ -411,9 +419,17 @@
         if (blocked.indexOf(s) !== -1) { b.disabled = true; b.classList.add('blocked'); }
         b.setAttribute('aria-pressed', s === state.date ? 'true' : 'false');
         b.addEventListener('click', function () { state.date = s; renderCal(); syncSend(); pop($('cal-grid').querySelector('.day.on')); });
+
         grid.appendChild(b);
+        created++;
+
+        if (d === 1 || d === 2 || d === count) {
+          console.log('[renderCal] day', d, ':', s, 'textContent=' + b.textContent, 'disabled=' + b.disabled, 'className=' + b.className);
+        }
       })(d);
     }
+    console.log('[renderCal] FINISHED: created', created, 'buttons, grid.children.length=', grid.children.length);
+    console.log('[renderCal] grid.innerHTML length:', grid.innerHTML.length, 'chars');
     var off = monthsFromToday();
     $('cal-prev').disabled = off <= 0;
     $('cal-next').disabled = off >= MAX_AHEAD;
