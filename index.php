@@ -4,6 +4,18 @@ require __DIR__ . '/lib.php';
 
 header('X-Robots-Tag: noindex, nofollow');
 header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Content-Security-Policy: default-src \'self\'; connect-src \'self\'; font-src https://fonts.googleapis.com https://fonts.gstatic.com; style-src \'self\' https://fonts.googleapis.com; img-src \'self\' data:; script-src \'self\'; form-action \'self\'; base-uri \'self\'; frame-ancestors \'none\'');
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('meet_session');
+    session_start();
+}
+if (empty($_SESSION['_csrf'])) {
+    $_SESSION['_csrf'] = bin2hex(random_bytes(16));
+}
 
 $token = is_string($_GET['i'] ?? null) ? $_GET['i'] : '';
 $inv = null;
@@ -52,6 +64,7 @@ $cfg = [
     'today' => date('Y-m-d'),
     'blocked' => blocked_dates($data),
     'preview' => isset($_GET['preview']) && is_admin(),
+    'csrf' => $_SESSION['_csrf'],
 ];
 $json = json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 ?>

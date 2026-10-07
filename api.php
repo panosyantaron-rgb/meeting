@@ -4,6 +4,8 @@ require __DIR__ . '/lib.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
+header('X-Robots-Tag: noindex, nofollow');
+header('X-Content-Type-Options: nosniff');
 @ini_set('zlib.output_compression', '0');
 
 function out(array $data, int $code = 200): void
@@ -27,6 +29,33 @@ $token = is_string($in['token'] ?? null) ? $in['token'] : '';
 if (!valid_token($token)) {
     out(['ok' => false, 'error' => 'token'], 404);
 }
+
+// Validate CSRF token
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('meet_session');
+    session_start();
+}
+$csrf = is_string($in['_csrf'] ?? null) ? $in['_csrf'] : '';
+if (!hash_equals($_SESSION['_csrf'] ?? '', $csrf)) {
+    out(['ok' => false, 'error' => 'csrf'], 403);
+}
+
+// Rate limiting: max 60 requests per minute per IP
+$client_ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+$rate_limit_key = 'api_' . sha1($client_ip);
+$rate_data = apcu_fetch($rate_limit_key);
+if ($rate_data === false) {
+    $rate_data = ['count' => 0, 'time' => time()];
+}
+$now_rl = time();
+if ($now_rl - $rate_data['time'] > 60) {
+    $rate_data = ['count' => 0, 'time' => $now_rl];
+}
+$rate_data['count']++;
+if ($rate_data['count'] > 60) {
+    out(['ok' => false, 'error' => 'rate_limit'], 429);
+}
+apcu_store($rate_limit_key, $rate_data, 61);
 
 // The admin panel's "preview" link (?preview=1) records nothing. A normal link always records,
 // even in a browser that is logged in to the admin panel.
@@ -76,7 +105,8 @@ $result = store_tx(function (array &$data) use ($action, $token, $in, $now, $pre
             $date = is_string($in['date'] ?? null) ? $in['date'] : '';
             $time = is_string($in['time'] ?? null) ? $in['time'] : '';
             $d = DateTime::createFromFormat('!Y-m-d', $date);
-            $dateOk = $d && $d->format('Y-m-d') === $date && $date >= date('Y-m-d', $now - 86400);
+            $today = date('Y-m-d');
+            $dateOk = $d && $d->format('Y-m-d') === $date && $date >= $today;
             $timeOk = (bool) preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time);
             if (!$acts || !$dateOk || !$timeOk) {
                 return ['ok' => false, 'error' => 'fields', 'code' => 400];

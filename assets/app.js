@@ -79,6 +79,7 @@
 
   function api(payload) {
     payload.token = cfg.token;
+    payload._csrf = cfg.csrf;
     if (cfg.preview) { payload.preview = 1; }
     return fetch('api.php', {
       method: 'POST',

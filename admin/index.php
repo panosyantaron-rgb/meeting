@@ -4,6 +4,10 @@ require __DIR__ . '/../lib.php';
 
 header('X-Robots-Tag: noindex, nofollow');
 header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Content-Security-Policy: default-src \'self\'; style-src \'self\' https://fonts.googleapis.com; font-src https://fonts.googleapis.com https://fonts.gstatic.com; img-src \'self\' data:; script-src \'self\'; form-action \'self\'; base-uri \'self\'');
 start_session();
 
 if (empty($_SESSION['csrf'])) {
@@ -102,6 +106,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $name = trim(preg_replace('/\s+/u', ' ', (string) ($_POST['name'] ?? '')) ?? '');
         if ($name === '' || mb_strlen($name) > 40) {
             flash('Գրիր անունը (մինչև 40 նիշ)։', true);
+        } elseif (preg_match('/[<>"\']/', $name)) {
+            flash('Անունը չի կարող պարունակել հատուկ նիշեր (<>"\')', true);
         } else {
             store_tx(function (array &$d) use ($name) {
                 do {
