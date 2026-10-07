@@ -64,18 +64,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if ($do === 'login' && $hasPassword) {
         $pass = (string) ($_POST['password'] ?? '');
         $now = time();
-        // Per-device lockout using client IP
+        // Per-device (per-IP) lockout using session
         $client_ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        $lock_key = 'login_lock_' . sha1($client_ip);
-        $fail_key = 'login_fail_' . sha1($client_ip);
+        $ip_hash = sha1($client_ip);
 
-        $lock_until = apcu_fetch($lock_key);
-        if ($lock_until !== false && $lock_until > $now) {
+        if (empty($_SESSION['login_attempts'])) {
+            $_SESSION['login_attempts'] = [];
+        }
+
+        $attempt = $_SESSION['login_attempts'][$ip_hash] ?? ['fails' => 0, 'locked_until' => 0];
+
+        if ($attempt['locked_until'] > $now) {
             flash('Շատ սխալ փորձեր։ Փորձիր 10 րոպեից։', true);
             redirect_self();
         }
 
-        $res = store_tx(function (array &$d) use ($pass, $now) {
+        $res = store_tx(function (array &$d) use ($pass) {
             if (password_verify($pass, (string) $d['settings']['password_hash'])) {
                 return 'ok';
             }
@@ -83,22 +87,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         });
 
         if ($res === 'ok') {
-            apcu_delete($fail_key);
-            apcu_delete($lock_key);
+            unset($_SESSION['login_attempts'][$ip_hash]);
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
         } else {
-            $fails = (int) apcu_fetch($fail_key);
-            $fails++;
-            if ($fails >= 8) {
-                apcu_store($lock_key, $now + 600, 610);
-                apcu_delete($fail_key);
+            $attempt['fails']++;
+            if ($attempt['fails'] >= 8) {
+                $attempt['locked_until'] = $now + 600;
+                $attempt['fails'] = 0;
                 flash('Շատ սխալ փորձեր։ Փորձիր 10 րոպեից։', true);
             } else {
-                apcu_store($fail_key, $fails, 610);
                 usleep(600000);
                 flash('Գաղտնաբառը սխալ է։', true);
             }
+            $_SESSION['login_attempts'][$ip_hash] = $attempt;
         }
         redirect_self();
     }
