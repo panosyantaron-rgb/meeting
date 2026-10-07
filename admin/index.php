@@ -64,43 +64,45 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if ($do === 'login' && $hasPassword) {
         $pass = (string) ($_POST['password'] ?? '');
         $now = time();
-        // Per-device (per-IP) lockout using session
         $client_ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        $ip_hash = sha1($client_ip);
 
-        if (empty($_SESSION['login_attempts'])) {
-            $_SESSION['login_attempts'] = [];
-        }
+        $res = store_tx(function (array &$d) use ($pass, $now, $client_ip) {
+            $ip_hash = sha1($client_ip);
+            $s = &$d['settings'];
 
-        $attempt = $_SESSION['login_attempts'][$ip_hash] ?? ['fails' => 0, 'locked_until' => 0];
+            if (empty($s['login_ips'])) {
+                $s['login_ips'] = [];
+            }
 
-        if ($attempt['locked_until'] > $now) {
-            flash('Շատ սխալ փորձեր։ Փորձիր 10 րոպեից։', true);
-            redirect_self();
-        }
+            $ip_data = $s['login_ips'][$ip_hash] ?? ['fails' => 0, 'locked_until' => 0];
 
-        $res = store_tx(function (array &$d) use ($pass) {
-            if (password_verify($pass, (string) $d['settings']['password_hash'])) {
+            if ($ip_data['locked_until'] > $now) {
+                return 'locked';
+            }
+
+            if (password_verify($pass, (string) $s['password_hash'])) {
+                $ip_data['fails'] = 0;
+                $s['login_ips'][$ip_hash] = $ip_data;
                 return 'ok';
             }
+
+            $ip_data['fails']++;
+            if ($ip_data['fails'] >= 8) {
+                $ip_data['locked_until'] = $now + 600;
+                $ip_data['fails'] = 0;
+            }
+            $s['login_ips'][$ip_hash] = $ip_data;
             return 'bad';
         });
 
         if ($res === 'ok') {
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
-            unset($_SESSION['login_attempts'][$ip_hash]);
+        } elseif ($res === 'locked') {
+            flash('Շատ սխալ փորձեր։ Փորձիր 10 րոպեից։', true);
         } else {
-            $attempt['fails']++;
-            if ($attempt['fails'] >= 8) {
-                $attempt['locked_until'] = $now + 600;
-                $attempt['fails'] = 0;
-                flash('Շատ սխալ փորձեր։ Փորձիր 10 րոպեից։', true);
-            } else {
-                usleep(600000);
-                flash('Գաղտնաբառը սխալ է։', true);
-            }
-            $_SESSION['login_attempts'][$ip_hash] = $attempt;
+            usleep(600000);
+            flash('Գաղտնաբառը սխալ է։', true);
         }
         redirect_self();
     }
