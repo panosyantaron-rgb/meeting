@@ -87,9 +87,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         });
 
         if ($res === 'ok') {
-            unset($_SESSION['login_attempts'][$ip_hash]);
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
+            unset($_SESSION['login_attempts'][$ip_hash]);
         } else {
             $attempt['fails']++;
             if ($attempt['fails'] >= 8) {
