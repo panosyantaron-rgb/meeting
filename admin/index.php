@@ -64,30 +64,41 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if ($do === 'login' && $hasPassword) {
         $pass = (string) ($_POST['password'] ?? '');
         $now = time();
+        // Per-device lockout using client IP
+        $client_ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $lock_key = 'login_lock_' . sha1($client_ip);
+        $fail_key = 'login_fail_' . sha1($client_ip);
+
+        $lock_until = apcu_fetch($lock_key);
+        if ($lock_until !== false && $lock_until > $now) {
+            flash('Շատ սխալ փորձեր։ Փորձիր 10 րոպեից։', true);
+            redirect_self();
+        }
+
         $res = store_tx(function (array &$d) use ($pass, $now) {
-            $s = &$d['settings'];
-            if (($s['lock_until'] ?? 0) > $now) {
-                return 'locked';
-            }
-            if (password_verify($pass, (string) $s['password_hash'])) {
-                $s['fails'] = 0;
+            if (password_verify($pass, (string) $d['settings']['password_hash'])) {
                 return 'ok';
-            }
-            $s['fails'] = (int) ($s['fails'] ?? 0) + 1;
-            if ($s['fails'] >= 8) {
-                $s['fails'] = 0;
-                $s['lock_until'] = $now + 600;
             }
             return 'bad';
         });
+
         if ($res === 'ok') {
+            apcu_delete($fail_key);
+            apcu_delete($lock_key);
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
-        } elseif ($res === 'locked') {
-            flash('Շատ սխալ փորձեր։ Փորձիր 10 րոպեից։', true);
         } else {
-            usleep(600000);
-            flash('Գաղտնաբառը սխալ է։', true);
+            $fails = (int) apcu_fetch($fail_key);
+            $fails++;
+            if ($fails >= 8) {
+                apcu_store($lock_key, $now + 600, 610);
+                apcu_delete($fail_key);
+                flash('Շատ սխալ փորձեր։ Փորձիր 10 րոպեից։', true);
+            } else {
+                apcu_store($fail_key, $fails, 610);
+                usleep(600000);
+                flash('Գաղտնաբառը սխալ է։', true);
+            }
         }
         redirect_self();
     }
