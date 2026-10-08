@@ -227,8 +227,8 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian:wght@400;500;700;800&amp;family=Noto+Sans:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/style.css?v=3">
-<link rel="stylesheet" href="../assets/admin.css?v=3">
+<link rel="stylesheet" href="../assets/style.css?v=5">
+<link rel="stylesheet" href="../assets/admin.css?v=4">
 </head>
 <body class="admin">
 <main class="wrap">
@@ -319,7 +319,7 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
         <span class="name"><?= h($inv['name']) ?></span>
         <span class="status <?= $status[1] ?>"><?= h($status[0]) ?></span>
       </div>
-      <form method="post" onsubmit="return confirm('Ջնջե՞լ այս հրավերը։');">
+      <form method="post" data-confirm="Ջնջե՞լ այս հրավերը։">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
         <input type="hidden" name="do" value="delete">
         <input type="hidden" name="token" value="<?= h((string) $token) ?>">
@@ -330,11 +330,11 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
     </div>
 
     <div class="link-row">
-      <input class="link" type="text" readonly value="<?= h($link) ?>" aria-label="Հրավերի հղումը" onfocus="this.select()">
+      <input class="link" type="text" readonly value="<?= h($link) ?>" aria-label="Հրավերի հղումը">
       <button type="button" class="btn-sm" data-copy="<?= h($link) ?>">Պատճենել հղումը</button>
       <a class="btn-sm" href="<?= h($link) ?>&amp;preview=1" target="_blank" rel="noopener">Նախադիտել</a>
       <?php if ($opens > 0 || $answer): ?>
-      <form method="post" onsubmit="return confirm('Զրոյացնե՞լ բացումներն ու պատասխանը։');">
+      <form method="post" data-confirm="Զրոյացնե՞լ բացումներն ու պատասխանը։">
         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
         <input type="hidden" name="do" value="reset">
         <input type="hidden" name="token" value="<?= h((string) $token) ?>">
@@ -413,78 +413,7 @@ $heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6
     </form>
   </details>
 
-  <script>
-  document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-copy]');
-    if (!b) { return; }
-    var text = b.getAttribute('data-copy'), old = b.textContent;
-    function done() { b.textContent = 'Պատճենված է'; setTimeout(function () { b.textContent = old; }, 1600); }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, fallback);
-    } else { fallback(); }
-    function fallback() {
-      var i = b.parentNode.querySelector('.link');
-      i.focus(); i.select();
-      try { document.execCommand('copy'); done(); } catch (err) {}
-    }
-  });
-  (function () {
-    var grid = document.getElementById('busy-grid');
-    var input = document.getElementById('busy-dates');
-    var months = ['Հունվար', 'Փետրվար', 'Մարտ', 'Ապրիլ', 'Մայիս', 'Հունիս', 'Հուլիս', 'Օգոստոս', 'Սեպտեմբեր', 'Հոկտեմբեր', 'Նոյեմբեր', 'Դեկտեմբեր'];
-    var todayStr = grid.getAttribute('data-today');
-    var tp = todayStr.split('-');
-    var today = { y: +tp[0], m: +tp[1] - 1 };
-    var view = { y: today.y, m: today.m };
-    var MAX_AHEAD = 6;
-    var set = {};
-    input.value.split(',').forEach(function (d) { if (d) { set[d] = true; } });
-
-    function pad(n) { return (n < 10 ? '0' : '') + n; }
-    function offset() { return (view.y - today.y) * 12 + (view.m - today.m); }
-    function sync() {
-      var list = Object.keys(set).sort();
-      input.value = list.join(',');
-      document.getElementById('busy-count').textContent = list.length ? 'Նշված է ' + list.length + ' օր' : 'Դեռ օր չի նշված';
-    }
-    function render() {
-      document.getElementById('busy-month').textContent = months[view.m] + ' ' + view.y;
-      grid.innerHTML = '';
-      var first = (new Date(view.y, view.m, 1).getDay() + 6) % 7;
-      var count = new Date(view.y, view.m + 1, 0).getDate();
-      for (var d = 1; d <= count; d++) {
-        (function (d) {
-          var s = view.y + '-' + pad(view.m + 1) + '-' + pad(d);
-          var b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'day' + (set[s] ? ' blocked' : '') + (s === todayStr ? ' today' : '');
-          b.textContent = d;
-          if (d === 1) { b.style.gridColumnStart = first + 1; }
-          if (s < todayStr) { b.disabled = true; }
-          b.setAttribute('aria-pressed', set[s] ? 'true' : 'false');
-          b.addEventListener('click', function () {
-            if (set[s]) { delete set[s]; } else { set[s] = true; }
-            sync(); render();
-          });
-          grid.appendChild(b);
-        })(d);
-      }
-      document.getElementById('busy-prev').disabled = offset() <= 0;
-      document.getElementById('busy-next').disabled = offset() >= MAX_AHEAD;
-    }
-    document.getElementById('busy-prev').addEventListener('click', function () {
-      if (offset() <= 0) { return; }
-      view.m--; if (view.m < 0) { view.m = 11; view.y--; }
-      render();
-    });
-    document.getElementById('busy-next').addEventListener('click', function () {
-      if (offset() >= MAX_AHEAD) { return; }
-      view.m++; if (view.m > 11) { view.m = 0; view.y++; }
-      render();
-    });
-    sync(); render();
-  })();
-  </script>
+  <script src="../assets/admin.js?v=4"></script>
 <?php endif; ?>
 
 </main>
