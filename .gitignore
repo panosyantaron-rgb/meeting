@@ -1,6 +1,7 @@
 data/store.php
 .DS_Store
 node_modules/
+package.json
 package-lock.json
 calendar-test.png
 test-*.js
